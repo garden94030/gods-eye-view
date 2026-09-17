@@ -11,9 +11,8 @@ COPY package.json package-lock.json ./
 RUN npm ci --include=dev
 
 COPY . .
+RUN npm run build
 
 EXPOSE 8080
 
-# Build at container start so Render environment variables can supply the
-# optional client-visible provider keys without baking them into image layers.
-CMD ["sh", "-c", "npm run build && npm run preview -- --host 0.0.0.0 --port ${PORT:-8080} --strictPort"]
+CMD ["sh", "-c", "npm run preview -- --host 0.0.0.0 --port ${PORT:-8080} --strictPort"]
