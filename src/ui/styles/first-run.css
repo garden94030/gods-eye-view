@@ -262,13 +262,17 @@ body.scene-playback-mode #first-run-launcher {
 @media (max-width: 620px) {
   #first-run-launcher {
     top: auto;
-    bottom: 5.8rem;
+    right: var(--mobile-edge, 12px);
+    bottom: calc(5.8rem + env(safe-area-inset-bottom));
+    left: var(--mobile-edge, 12px);
+    width: auto;
+    max-height: calc(100dvh - 8.5rem - env(safe-area-inset-bottom));
     padding: 0.9rem;
-    transform: translate(-50%, 0.8rem) scale(0.985);
+    transform: translateY(0.8rem) scale(0.985);
   }
 
   #first-run-launcher.visible {
-    transform: translate(-50%, 0) scale(1);
+    transform: translateY(0) scale(1);
   }
   /* Five tiles have to clear the dock on a 375 x 812 phone, so the rows tighten
      and the redundant "ESC to dismiss" hint (no ESC key on a phone) drops. */

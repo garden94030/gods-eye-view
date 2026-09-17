@@ -1,0 +1,27 @@
+{
+  "name": "gods-eye-view-portal-page",
+  "sourceProject": "bilawalsidhu/gods-eye-view",
+  "sourceBaseRevision": "0d41b6be5490db1f10a171f238be75db4d4ec3b4",
+  "workingTreeChangesIncluded": true,
+  "buildCommand": "npm run build",
+  "runtimeAssetDirectory": "dist",
+  "entrypoint": "dist/index.html",
+  "sourceLanguage": "en",
+  "defaultLocale": "zh-Hant-TW",
+  "englishQuery": "?lang=en",
+  "spaceMissionReplayAudio": "Web Audio synthesized countdown, liftoff, and engine cue",
+  "mobileResponsive": {
+    "breakpoints": [720, 420],
+    "validatedViewport": "390x844",
+    "touchFirstControls": true,
+    "independentScrollableRails": true,
+    "safeAreaAwareDock": true
+  },
+  "suggestedPortalRoutes": [
+    "/gods-eye-view",
+    "/apps/gods-eye-view"
+  ],
+  "requiresPortalApiReview": true,
+  "requiresProviderKeyReview": true,
+  "deploymentPerformed": false
+}

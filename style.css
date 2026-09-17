@@ -19,3 +19,84 @@
 @import './src/ui/styles/voice-cost.css';
 @import './src/ui/styles/first-run.css';
 @import './src/ui/styles/provider-settings.css';
+
+/* Language control supplied by the Traditional Chinese UI add-on. */
+.gev-language-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 10000;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(130, 218, 255, 0.55);
+  border-radius: 5px;
+  background: rgba(7, 15, 24, 0.9);
+  color: #bdefff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  font:
+    600 12px/1.1 'JetBrains Mono',
+    monospace;
+  letter-spacing: 0.02em;
+}
+
+.gev-language-toggle:hover,
+.gev-language-toggle:focus-visible {
+  border-color: #82daff;
+  background: rgba(13, 35, 52, 0.96);
+  color: #ffffff;
+}
+
+/* Final mobile overrides: this file is intentionally last in the cascade so
+   the compact command-dock skins cannot undo the touch layout. */
+@media (max-width: 720px) {
+  .gev-language-toggle {
+    min-height: 44px !important;
+    max-width: min(10.5rem, 36vw);
+    padding: 0 9px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  #command-dock {
+    right: 12px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: 12px;
+    width: auto;
+    max-width: none;
+    transform: none;
+    justify-content: center;
+  }
+
+  #command-dock > #location-bar,
+  #command-dock > #control-panel {
+    flex: 0 0 3.5rem !important;
+    width: 3.5rem;
+  }
+
+  #command-dock > #gev-voice-control {
+    flex: 0 0 8.75rem !important;
+    width: 8.75rem;
+    height: 62px;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 8px !important;
+    align-self: stretch;
+  }
+
+  #command-dock #gev-voice-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  body:not(.ui-clean-view):not(.recording-mode) #cesium-credits {
+    bottom: calc(6.8rem + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 420px) {
+  #command-dock > #gev-voice-control {
+    flex-basis: 8rem !important;
+    width: 8rem;
+  }
+}

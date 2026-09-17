@@ -249,3 +249,154 @@
     display: none;
   }
 }
+
+/* ── Touch-first phone layout ───────────────────
+   Keep the globe visible while giving each control surface an independent,
+   bounded scroll lane. The previous mobile rules positioned the lanes, but an
+   expanded panel could still grow into the other lane or the command dock. */
+@media (max-width: 720px) {
+  :root {
+    --mobile-edge: 12px;
+    --mobile-touch-size: 44px;
+    --mobile-dock-clearance: calc(6.25rem + env(safe-area-inset-bottom));
+  }
+
+  #top-center-actions {
+    right: clamp(8.5rem, 35vw, 10.5rem);
+    left: auto;
+    gap: 6px;
+    transform: none;
+  }
+
+  #top-center-actions button {
+    width: var(--mobile-touch-size);
+    height: var(--mobile-touch-size);
+  }
+
+  .gev-language-toggle {
+    top: max(12px, env(safe-area-inset-top));
+    right: var(--mobile-edge);
+    min-height: var(--mobile-touch-size);
+    max-width: min(10.5rem, 36vw);
+    padding: 0 9px;
+    overflow: hidden;
+    font-size: 10px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #left-panel-stack,
+  #right-context-rail {
+    right: var(--mobile-edge);
+    left: var(--mobile-edge);
+    width: auto;
+    max-height: none;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 212, 255, 0.42) transparent;
+  }
+
+  #left-panel-stack {
+    top: max(70px, calc(4rem + env(safe-area-inset-top)));
+    bottom: calc(50vh + 10px);
+    overflow-y: auto;
+    padding-bottom: 2px;
+  }
+
+  #right-context-rail {
+    top: calc(50vh + 10px);
+    bottom: var(--mobile-dock-clearance);
+    overflow-y: auto;
+    padding-bottom: 2px;
+  }
+
+  #left-panel-stack > [data-panel-id],
+  #right-context-rail > [data-panel-id],
+  #right-context-rail > #pp-toggles {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  #left-panel-stack .data-panel-inner,
+  #left-panel-stack .cctv-panel-inner,
+  #left-panel-stack .scene-panel-inner,
+  #right-context-rail .global-context-panel-inner,
+  #right-context-rail .cctv-panel-inner,
+  #right-context-rail .pp-inner {
+    max-height: min(38dvh, 21rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  #data-toggle-list {
+    max-height: min(31dvh, 17rem);
+    touch-action: pan-y;
+  }
+
+  #command-dock {
+    right: var(--mobile-edge);
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: var(--mobile-edge);
+    width: auto;
+    max-width: none;
+    transform: none;
+    justify-content: center;
+  }
+
+  #command-dock > #location-bar,
+  #command-dock > #control-panel {
+    flex-basis: 3.5rem;
+    width: 3.5rem;
+  }
+
+  #command-dock > #gev-voice-control {
+    flex: 0 0 8.75rem;
+    width: 8.75rem;
+    min-width: 0;
+    margin: -8px 0;
+    padding-inline: 8px;
+  }
+
+  #command-dock .gev-voice-readout {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  #command-dock #gev-voice-detail,
+  #command-dock .gev-voice-kicker {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body:not(.ui-clean-view):not(.recording-mode) #cesium-credits {
+    bottom: calc(var(--mobile-dock-clearance) + 0.55rem);
+    max-width: calc(100vw - 1.5rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 420px) {
+  #top-center-actions {
+    right: 8.25rem;
+  }
+
+  #top-center-actions button {
+    width: 40px;
+    height: 40px;
+  }
+
+  #command-dock > #gev-voice-control {
+    flex-basis: 8rem;
+    width: 8rem;
+  }
+
+  #command-dock .gev-voice-readout {
+    font-size: 9px;
+  }
+}
