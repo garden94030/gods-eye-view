@@ -305,6 +305,7 @@ export function createReplay({ state: layerState, services, parts, source }) {
       return false;
     layerState._replayPausedAtMs = Date.now();
     layerState._replayPaused = true;
+    parts.replayAudio?.pause();
     syncReplayButton();
     return true;
   }
@@ -333,6 +334,7 @@ export function createReplay({ state: layerState, services, parts, source }) {
     }
     layerState._replayPaused = false;
     layerState._replayPausedAtMs = null;
+    parts.replayAudio?.resume();
     syncReplayButton();
     return true;
   }
@@ -348,6 +350,7 @@ export function createReplay({ state: layerState, services, parts, source }) {
     layerState._replayCameraLaunchId = null;
     layerState._replayPaused = false;
     layerState._replayPausedAtMs = null;
+    parts.replayAudio?.stop();
     if (stoppedLaunchId)
       layerState._animationStarts.set(stoppedLaunchId, Date.now());
     syncReplayButton();
@@ -382,6 +385,10 @@ export function createReplay({ state: layerState, services, parts, source }) {
     parts.policyHelpers.releaseAircraftTracking(layerState._dataManager);
     layerState._viewer.trackedEntity = undefined;
     layerState._viewer.camera.cancelFlight();
+    // startMissionReplay is reached by the mission replay button's click
+    // handler, so the browser's user gesture is still available to resume
+    // Web Audio before autoplay policy can suspend the cue.
+    parts.replayAudio?.start();
     layerState._animationStarts.set(
       launchId,
       Date.now() +
@@ -401,6 +408,7 @@ export function createReplay({ state: layerState, services, parts, source }) {
         )
           return;
         const state = track.beginReplayFrame();
+        parts.replayAudio?.update(state);
         syncReplayCountdownButton(state);
         if (!cameraReady) return;
         const path = state.ascending

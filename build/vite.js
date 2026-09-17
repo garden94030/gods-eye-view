@@ -1,6 +1,34 @@
 import { applicationHtmlPlugin } from './application-html.js';
 import cesium from 'vite-plugin-cesium';
 
+function portalStaticPrefixPlugin(base) {
+  if (base === '/') return null;
+  const prefix = base.endsWith('/') ? base.slice(0, -1) : base;
+  const rewrite = (code) =>
+    code
+      .replaceAll('"/api/', `"${prefix}/api/`)
+      .replaceAll("'/api/", `'${prefix}/api/`)
+      .replaceAll('`/api/', `\`${prefix}/api/`)
+      .replaceAll('"/models/', `"${prefix}/models/`)
+      .replaceAll("'/models/", `'${prefix}/models/`)
+      .replaceAll('`/models/', `\`${prefix}/models/`)
+      .replaceAll('"/logo.svg"', `"${prefix}/logo.svg"`)
+      .replaceAll("'/logo.svg'", `'${prefix}/logo.svg'`)
+      .replaceAll('src="/mic.svg"', `src="${prefix}/mic.svg"`)
+      .replaceAll('src="/pin.svg"', `src="${prefix}/pin.svg"`);
+  return {
+    name: 'portal-static-prefix',
+    enforce: 'post',
+    transformIndexHtml: (html) => rewrite(html),
+    generateBundle(_, bundle) {
+      for (const output of Object.values(bundle)) {
+        if (output.type !== 'chunk') continue;
+        output.code = rewrite(output.code);
+      }
+    },
+  };
+}
+
 /** Build browser assets with explicit inputs; never load environment or providers. */
 export function createBrowserViteConfig({
   plugins = [],
@@ -10,8 +38,19 @@ export function createBrowserViteConfig({
   host = 'localhost',
   port = 4173,
 } = {}) {
+  const base = process.env.GEV_PUBLIC_BASE || '/';
+  const portalPrefixPlugin = portalStaticPrefixPlugin(base);
   return {
-    plugins: [cesium(), applicationHtmlPlugin(), ...plugins],
+    // The standalone desktop build stays rooted at `/`.  A Portal build can
+    // opt into its own static prefix so its Cesium and Vite assets never
+    // collide with the host site's `/assets` directory.
+    base,
+    plugins: [
+      cesium(),
+      applicationHtmlPlugin(),
+      ...plugins,
+      ...(portalPrefixPlugin ? [portalPrefixPlugin] : []),
+    ],
     ...(publicDir === undefined ? {} : { publicDir }),
     server: {
       host: host || 'localhost',

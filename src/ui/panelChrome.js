@@ -27,6 +27,22 @@ const COCKPIT_ENTRY_COLLAPSE_PANEL_IDS = Object.freeze([
   'radio-panel',
 ]);
 
+// A phone has one usable control lane.  Restoring a desktop share link with
+// several open panels must not cover the globe or command dock on a narrow
+// viewport.  Data remains first because it is the primary map-facing panel;
+// explicit taps always move the focus to the panel the operator selected.
+const MOBILE_PANEL_FOCUS_PRIORITY = Object.freeze([
+  'data-panel',
+  'scene-panel',
+  'global-context-panel',
+  'cctv-panel',
+  'radio-panel',
+  'pp-toggles',
+  'param-slider-panel',
+  'location-bar',
+  'control-panel',
+]);
+
 /** Own panel disclosure, docking, persistence and Cockpit rail restoration. */
 export class PanelChrome {
   constructor({
@@ -371,7 +387,32 @@ export class PanelChrome {
         syncShare: false,
       });
     }
+    this._normalizeMobilePanelFocus();
     this.shareLinkManager?.onPanelStateChange?.();
+  }
+
+  _isMobileViewport() {
+    return window.matchMedia?.('(max-width: 720px)').matches === true;
+  }
+
+  _normalizeMobilePanelFocus(preferredPanelId = null) {
+    if (!this._isMobileViewport()) return;
+    const expandedPanelIds = MOBILE_PANEL_FOCUS_PRIORITY.filter((panelId) => {
+      const panel = document.getElementById(panelId);
+      return panel && !panel.classList.contains('collapsed');
+    });
+    const focusPanelId =
+      preferredPanelId && expandedPanelIds.includes(preferredPanelId)
+        ? preferredPanelId
+        : expandedPanelIds[0];
+    if (!focusPanelId) return;
+    for (const panelId of expandedPanelIds) {
+      if (panelId === focusPanelId) continue;
+      this.setPanelCollapsed(panelId, true, {
+        persist: false,
+        syncShare: false,
+      });
+    }
   }
 
   setPanelCollapsed(
@@ -490,6 +531,9 @@ export class PanelChrome {
       }
     }
     panelEl.classList.toggle('collapsed', nextCollapsed);
+    if (explicit && !restore && !nextCollapsed) {
+      this._normalizeMobilePanelFocus(panelId);
+    }
     if (
       nextCollapsed &&
       this.cockpitView?.active &&

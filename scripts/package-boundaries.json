@@ -612,6 +612,11 @@
     ],
     "external": []
   },
+  "traditional-chinese-plugin": {
+    "exports": ["./plugins/traditional-chinese"],
+    "modules": ["src/plugins/traditionalChinese.js"],
+    "external": []
+  },
   "director": {
     "exports": ["./director"],
     "modules": [
@@ -892,6 +897,7 @@
       "src/layers/launches/policyHelpers.js",
       "src/layers/launches/rendering.js",
       "src/layers/launches/replay.js",
+      "src/layers/launches/replayAudio.js",
       "src/layers/launches/selection.js",
       "src/layers/launches/source.js",
       "src/layers/launches/state.js",
@@ -1474,6 +1480,7 @@
       "src/layers/launches/policyHelpers.js",
       "src/layers/launches/rendering.js",
       "src/layers/launches/replay.js",
+      "src/layers/launches/replayAudio.js",
       "src/layers/launches/selection.js",
       "src/layers/launches/source.js",
       "src/layers/launches/state.js",
@@ -2036,6 +2043,7 @@
       "src/layers/launches/policyHelpers.js",
       "src/layers/launches/rendering.js",
       "src/layers/launches/replay.js",
+      "src/layers/launches/replayAudio.js",
       "src/layers/launches/selection.js",
       "src/layers/launches/source.js",
       "src/layers/launches/state.js",

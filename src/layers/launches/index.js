@@ -4,6 +4,7 @@ import { createOrbitRendering } from './orbitRendering.js';
 import { createOverlays } from './overlays.js';
 import { createSelection } from './selection.js';
 import { createReplay } from './replay.js';
+import { createReplayAudio } from './replayAudio.js';
 import { createPanel } from './panel.js';
 import { createPaths } from './paths.js';
 import { createLaunchPad } from './launchPad.js';
@@ -27,6 +28,7 @@ export function createRocketLaunchesLayer({ services, source }) {
   parts.orbitRendering = createOrbitRendering(context);
   parts.overlays = createOverlays(context);
   parts.selection = createSelection(context);
+  parts.replayAudio = createReplayAudio();
   parts.replay = createReplay(context);
   parts.panel = createPanel(context);
   parts.paths = createPaths(context);

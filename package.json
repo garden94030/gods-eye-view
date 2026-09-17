@@ -2,7 +2,7 @@
   "name": "gods-eye-view",
   "private": true,
   "version": "0.1.1",
-  "description": "A real-time intelligence console for planet Earth \u2014 photorealistic 3D globe, live aircraft/ships/satellites/earthquakes/CCTV, and hands-free voice control. Runs in a browser.",
+  "description": "A real-time intelligence console for planet Earth — photorealistic 3D globe, live aircraft/ships/satellites/earthquakes/CCTV, and hands-free voice control. Runs in a browser.",
   "type": "module",
   "license": "MIT",
   "author": "Bilawal Sidhu",
@@ -39,6 +39,7 @@
     "dev:secure": "./scripts/dev-secure.sh",
     "opensky:import": "./scripts/opensky-import-client.sh",
     "build": "vite build",
+    "app:build": "node scripts/build-macos-app.mjs",
     "preview": "vite preview",
     "test": "node scripts/run-unit-tests.mjs",
     "test:track": "node scripts/track-regression.mjs",
@@ -55,6 +56,7 @@
     "satellite.js": "^6.0.2"
   },
   "devDependencies": {
+    "@cloudflare/containers": "0.3.7",
     "prettier": "3.9.6",
     "puppeteer": "^25.10.0",
     "sharp": "^0.35.4",
@@ -204,6 +206,7 @@
     "./ui/share-restoration": "./src/ui/shareRestoration.js",
     "./ui/visual-settings": "./src/ui/visualSettings.js",
     "./ui/panel-chrome": "./src/ui/panelChrome.js",
+    "./plugins/traditional-chinese": "./src/plugins/traditionalChinese.js",
     "./layers/flights/records": "./src/layers/flights/records.js",
     "./layers/flights/ingestion": "./src/layers/flights/ingestion.js",
     "./layers/military/records": "./src/layers/military/records.js",

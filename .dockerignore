@@ -1,0 +1,15 @@
+.git
+.github
+.env
+.env.*
+node_modules
+dist
+screenshots
+qa-shots
+output
+.gev-logs
+.gev-cache
+God's Eye View.app
+desktop
+portal-handoff
+*.log
