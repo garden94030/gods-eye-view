@@ -8,7 +8,7 @@ ENV PUPPETEER_SKIP_DOWNLOAD=1 \
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 COPY . .
 
