@@ -83,6 +83,7 @@ export function celestrakProxy() {
         if (res.headersSent) return;
         res.writeHead(status, {
           'Content-Type': 'text/plain',
+          'Cache-Control': 'no-store',
           'x-tle-cache': cacheStatus,
         });
         res.end(body);

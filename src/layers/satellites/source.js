@@ -16,7 +16,10 @@ export function createSatelliteSource({
     async readGroup(group, { signal } = {}) {
       if (!GROUPS.has(group)) throw new TypeError('Unknown satellite group');
       signal?.throwIfAborted();
-      const response = await fetchImpl(`/api/celestrak/${group}`, { signal });
+      const response = await fetchImpl(`/api/celestrak/${group}`, {
+        cache: 'no-store',
+        signal,
+      });
       const text = response.ok ? await response.text() : '';
       signal?.throwIfAborted();
       return { ok: response.ok, status: response.status, text };
