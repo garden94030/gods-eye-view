@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: gods-eye-view
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PUPPETEER_SKIP_DOWNLOAD
+        value: '1'
