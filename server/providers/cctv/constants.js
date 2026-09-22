@@ -1,4 +1,19 @@
 export const DEFAULT_CCTV_SOURCE_FILE = 'config/cctv_sources.austin.json';
+/** Taipei City official traffic-camera API and the matching public facility catalog. */
+export const TAIPEI_CCTV_API_URL =
+  'https://itsapi.taipei.gov.tw/TPTS_API/roadInformation/CCTVByLBS';
+export const TAIPEI_CCTV_CATALOG_URL =
+  'https://data.taipei/api/frontstage/tpeod/dataset/resource.download?rid=d317a3c4-ff08-48af-894e-31dfb5155de3';
+export const TAIPEI_CCTV_CENTER = { lat: 25.0478, lon: 121.517 };
+export const DEFAULT_TAIPEI_MAX_SOURCES = 500;
+export const TAIPEI_CCTV_STREAM_ORIGINS = Object.freeze([
+  'https://jtmctrafficcctv1.gov.taipei',
+  'https://jtmctrafficcctv2.gov.taipei',
+  'https://jtmctrafficcctv3.gov.taipei',
+  'https://jtmctrafficcctv4.gov.taipei',
+  'https://jtmctrafficcctv5.gov.taipei',
+]);
+export const TAIPEI_CCTV_IMAGE_ORIGIN = 'https://cctv.bote.gov.taipei:8502/';
 /** Austin Open Data portal endpoint for traffic camera records. */
 export const DEFAULT_AUSTIN_ROWS_URL =
   'https://data.austintexas.gov/api/views/b4k4-adkb/rows.json?accessType=DOWNLOAD';

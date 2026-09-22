@@ -18,7 +18,53 @@ import {
 } from './cctv/constants.js';
 import { sanitizeCctvRangeHeader } from './cctv/range.js';
 import { googleServerApiKey } from './places/google-key.js';
+import { readResponseTextCapped } from './common/http.js';
 export { CCTV_FRAME_FETCH_TIMEOUT_MS, fetchCctvImageFromUpstream };
+
+const CCTV_HLS_MANIFEST_MAX_BYTES = 2 * 1024 * 1024;
+
+function hlsProxyUrl(cameraId, upstreamUrl) {
+  return `/api/cctv/media/${encodeURIComponent(cameraId)}?asset=${encodeURIComponent(upstreamUrl)}`;
+}
+
+/** Rewrite same-origin HLS assets so native Safari playback stays on our proxy. */
+export function rewriteHlsManifest(manifest, { cameraId, baseUrl }) {
+  let base;
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    return manifest;
+  }
+  const rewrite = (value) => {
+    try {
+      const target = new URL(value, base);
+      if (target.origin !== base.origin) return value;
+      return hlsProxyUrl(cameraId, target.toString());
+    } catch {
+      return value;
+    }
+  };
+  return String(manifest)
+    .split(/\r?\n/)
+    .map((line) => {
+      if (!line.trim()) return line;
+      if (line.trimStart().startsWith('#'))
+        return line.replace(/URI="([^"]+)"/g, (_match, value) => {
+          return `URI="${rewrite(value)}"`;
+        });
+      const trimmed = line.trim();
+      return line.slice(0, line.indexOf(trimmed)) + rewrite(trimmed);
+    })
+    .join('\n');
+}
+
+function isHlsManifest(feedType, url, contentType) {
+  return (
+    feedType === 'hls' &&
+    (contentType.toLowerCase().includes('mpegurl') ||
+      /\.m3u8(?:$|\?)/i.test(url))
+  );
+}
 /**
  * Vite plugin: CCTV camera proxy with source registry, frame/media serving,
  * fallback chain (upstream -> Street View -> synthetic SVG), and health tracking.
@@ -220,6 +266,24 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
             return;
           }
 
+          let upstreamMediaUrl = mediaUrl;
+          const asset = url.searchParams.get('asset');
+          if (asset) {
+            try {
+              const base = new URL(mediaUrl);
+              const requested = new URL(asset, base);
+              if (requested.origin !== base.origin) throw new Error('origin');
+              upstreamMediaUrl = requested.toString();
+            } catch {
+              res.writeHead(400, {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store',
+              });
+              res.end(JSON.stringify({ error: 'Invalid media asset' }));
+              return;
+            }
+          }
+
           // Bound before the request goes out: most of the wait is before any
           // header arrives, and a viewer who leaves during it must take the
           // upstream request with them.
@@ -232,7 +296,7 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
             // not accept is dropped and the request proceeds without one.
             const requestRange = sanitizeCctvRangeHeader(req.headers?.range);
             if (requestRange) upstreamHeaders.Range = requestRange;
-            const upstream = await fetchCctvMediaUpstream(mediaUrl, {
+            const upstream = await fetchCctvMediaUpstream(upstreamMediaUrl, {
               headers: upstreamHeaders,
               signal: downstream.signal,
             });
@@ -292,6 +356,24 @@ export function cctvProxy({ sourceRoot = process.cwd() } = {}) {
                   ? 'Live stream connected'
                   : 'Snapshot feed connected',
               });
+            }
+
+            if (isHlsManifest(feedType, upstreamMediaUrl, contentType)) {
+              const manifest = await readResponseTextCapped(
+                upstream,
+                CCTV_HLS_MANIFEST_MAX_BYTES,
+              );
+              const rewritten = rewriteHlsManifest(manifest, {
+                cameraId,
+                baseUrl: upstreamMediaUrl,
+              });
+              res.writeHead(200, {
+                'Content-Type': contentType || 'application/vnd.apple.mpegurl',
+                'Cache-Control': 'no-store',
+                'X-CCTV-Source': 'live-manifest',
+              });
+              res.end(rewritten);
+              return;
             }
 
             await proxyMediaResponse(res, upstream, {

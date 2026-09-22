@@ -28,6 +28,7 @@ import { aircraftTrackingTarget } from '../cockpitTracking.js';
 import { ShellFeedback } from './shellFeedback.js';
 
 import { runCctvLayerEnableTransition } from '../cctvFocusPolicy.js';
+import { bindGeoLibrePanel } from './geolibrePanel.js';
 
 /**
  * Central UI orchestrator for the God's Eye View application.
@@ -532,6 +533,7 @@ export class StyleManager extends ShellFacade {
     this._initUI();
     this._initMapStackControl();
     this._initPanelChrome();
+    this._initGeoLibrePanel();
     this._initLeftPanelAdaptiveLayout();
     this._initRightPanelAdaptiveLayout();
     this._initRadioPanel();
@@ -917,6 +919,21 @@ export class StyleManager extends ShellFacade {
         syncViewport: () => this._syncCctvPanelViewport(),
         setSplitFlapText,
       },
+    });
+  }
+
+  /** Connect the read-only GeoLibre event bridge to the data-layer rail. */
+  _initGeoLibrePanel() {
+    this._geoLibrePanelControl?.destroy();
+    this._geoLibrePanelControl = bindGeoLibrePanel({
+      toggleButton: this._geolibreOpenBtn,
+      panel: this._geolibrePanel,
+      frame: this._geolibreEventsFrame,
+      status: this._geolibrePanelStatus,
+      refreshButton: this._geolibreRefreshBtn,
+      externalLink: this._geolibreExternalLink,
+      setPanelCollapsed: (...args) => this.setPanelCollapsed(...args),
+      windowRef: window,
     });
   }
 
@@ -1471,6 +1488,7 @@ export class StyleManager extends ShellFacade {
     this._cameraOrientationControls?.destroy();
     this._clearLayersControl?.destroy();
     this._cctvControls?.destroy();
+    this._geoLibrePanelControl?.destroy();
     this._radioControls?.destroy();
     this._cockpitCoordinator.stop();
     this._visualSettings.stop();

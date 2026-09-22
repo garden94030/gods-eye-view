@@ -94,6 +94,17 @@ export function createFlow({ state: layerState, services, parts, source }) {
       if (generation !== layerState._loadGeneration) return;
       if (!Array.isArray(roads) || roads.length === 0) return;
       try {
+        // TomTom flow geometries are complete road lines with their own live
+        // level. When Overpass is unavailable, ingestion stores those lines
+        // directly so the live layer can still render and report coverage.
+        const directTomTomRoads = roads.every(
+          (road) => road?.flowSource === 'tomtom' && road.flow,
+        );
+        if (directTomTomRoads) {
+          layerState._flowCoveragePct = 100;
+          layerState._flowError = null;
+          return;
+        }
         // Cached paths reach here without a live controller; the fetch paths
         // reuse theirs so one cancel covers both roads and flow.
         if (!layerState._activeFetchAbort)

@@ -55,6 +55,12 @@ import {
   DEFAULT_CALGARY_MAX_SOURCES,
   CALGARY_DOWNTOWN,
   CALGARY_MAX_CATALOG_BYTES,
+  DEFAULT_TAIPEI_MAX_SOURCES,
+  TAIPEI_CCTV_API_URL,
+  TAIPEI_CCTV_CATALOG_URL,
+  TAIPEI_CCTV_CENTER,
+  TAIPEI_CCTV_IMAGE_ORIGIN,
+  TAIPEI_CCTV_STREAM_ORIGINS,
   CCTV_SOURCE_FETCH_TIMEOUT_MS,
 } from './constants.js';
 import {
@@ -78,7 +84,209 @@ import {
   prioritizeSources,
 } from './normalize.js';
 import { directionToHeading } from '../../../src/data/directionText.js';
-import { readResponseJsonCapped } from '../common/http.js';
+import {
+  readResponseBytesCapped,
+  readResponseJsonCapped,
+} from '../common/http.js';
+
+const TAIPEI_CCTV_CATALOG_MAX_BYTES = 512 * 1024;
+const TAIPEI_CCTV_API_MAX_BYTES = 4 * 1024 * 1024;
+
+function parseSimpleCsvLine(line) {
+  const cells = [];
+  let cell = '';
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    if (char === '"') {
+      if (quoted && line[index + 1] === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (char === ',' && !quoted) {
+      cells.push(cell.trim());
+      cell = '';
+    } else {
+      cell += char;
+    }
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+
+/** Decode the official Taipei City CCTV facility CSV into keyed rows. */
+export function parseTaipeiFacilityCsv(bytes) {
+  const text = new TextDecoder('big5').decode(bytes).replace(/^\uFEFF/, '');
+  const lines = text.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) return [];
+  const headers = parseSimpleCsvLine(lines[0]);
+  const index = new Map(headers.map((header, i) => [header, i]));
+  const serialIndex = index.get('流水號');
+  const nameIndex = index.get('攝影機編號');
+  const lonIndex = index.get('WGSX');
+  const latIndex = index.get('WGSY');
+  if ([serialIndex, nameIndex, lonIndex, latIndex].some((i) => i == null))
+    return [];
+  return lines.slice(1).flatMap((line) => {
+    const cells = parseSimpleCsvLine(line);
+    const serial = String(cells[serialIndex] || '').trim();
+    const name = String(cells[nameIndex] || '').trim();
+    const lat = toFiniteNumber(cells[latIndex]);
+    const lon = toFiniteNumber(cells[lonIndex]);
+    return serial && name && isPlausibleLatLon(lat, lon)
+      ? [{ serial, name, lat, lon }]
+      : [];
+  });
+}
+
+function taipeiCameraNumber(value) {
+  const match = String(value || '')
+    .trim()
+    .match(/^0*(\d+)$/);
+  return match ? String(Number(match[1])) : '';
+}
+
+function officialTaipeiStreamUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    return url.protocol === 'https:' &&
+      TAIPEI_CCTV_STREAM_ORIGINS.includes(url.origin)
+      ? url.toString()
+      : '';
+  } catch {
+    return '';
+  }
+}
+
+function officialTaipeiImageUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    return url.protocol === 'https:' &&
+      `${url.origin}${url.pathname}`.startsWith(TAIPEI_CCTV_IMAGE_ORIGIN)
+      ? url.toString()
+      : '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Load Taipei City traffic cameras from the official ITS API. The API returns
+ * a wider northern-Taiwan set, so every result must also match the City's
+ * official CCTV facility CSV by numeric camera id before it is registered.
+ */
+export async function loadTaipeiSourcesFromOpenData() {
+  try {
+    const catalogUrl =
+      process.env.CCTV_TAIPEI_CATALOG_URL || TAIPEI_CCTV_CATALOG_URL;
+    const apiUrl = process.env.CCTV_TAIPEI_API_URL || TAIPEI_CCTV_API_URL;
+    const [catalogResponse, apiResponse] = await Promise.all([
+      fetch(catalogUrl, {
+        headers: { Accept: 'text/csv' },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
+      }),
+      fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          distance: '10000000',
+          lng: String(TAIPEI_CCTV_CENTER.lon),
+          lat: String(TAIPEI_CCTV_CENTER.lat),
+          language: 'ZH',
+        }),
+        redirect: 'manual',
+        signal: AbortSignal.timeout(CCTV_SOURCE_FETCH_TIMEOUT_MS),
+      }),
+    ]);
+    if (!catalogResponse.ok || !apiResponse.ok) {
+      await Promise.allSettled([
+        catalogResponse.body?.cancel(),
+        apiResponse.body?.cancel(),
+      ]);
+      console.warn(
+        '[CCTV] Taipei source download failed:',
+        catalogResponse.status,
+        apiResponse.status,
+      );
+      return [];
+    }
+    const [catalogBytes, payload] = await Promise.all([
+      readResponseBytesCapped(catalogResponse, TAIPEI_CCTV_CATALOG_MAX_BYTES),
+      readResponseJsonCapped(apiResponse, TAIPEI_CCTV_API_MAX_BYTES),
+    ]);
+    const facilities = parseTaipeiFacilityCsv(catalogBytes);
+    const facilityById = new Map(
+      facilities
+        .map((facility) => [taipeiCameraNumber(facility.serial), facility])
+        .filter(([id]) => id),
+    );
+    if (!facilityById.size || !Array.isArray(payload?.locations)) return [];
+
+    const cameras = [];
+    const seen = new Set();
+    for (const location of payload.locations) {
+      const number = taipeiCameraNumber(location?.cctvId);
+      const facility = facilityById.get(number);
+      if (!facility || seen.has(number)) continue;
+      const streamUrl = officialTaipeiStreamUrl(location?.videoStreamURL);
+      if (!streamUrl) continue;
+      const snapshotUrl = officialTaipeiImageUrl(location?.videoPreviewImgUrl);
+      const id = `tpe-${number}`;
+      const name = String(location?.cctvName || facility.name).trim();
+      cameras.push({
+        id,
+        name,
+        city: 'Taipei',
+        cityId: 'taipei',
+        provider: 'Taipei City Traffic Engineering Office',
+        lat: toFiniteNumber(location?.lat, facility.lat),
+        lon: toFiniteNumber(location?.lng, facility.lon),
+        headingDeg: fallbackHeadingFromId(id),
+        headingConfidence: 'low',
+        pitchDeg: -18,
+        fovDeg: 44,
+        rangeM: 145,
+        mountHeightM: 8,
+        feedType: 'hls',
+        url: streamUrl,
+        snapshotUrl,
+        sourceKind: 'taipei-its',
+        license:
+          'Taipei City Government CCTV facility data; live-feed access is subject to official authorization',
+        credit: '臺北市政府交通局',
+        code: cameraDisplayCode(name.toUpperCase()),
+      });
+      seen.add(number);
+    }
+
+    const maxRaw = Number(
+      process.env.CCTV_TAIPEI_MAX_SOURCES || DEFAULT_TAIPEI_MAX_SOURCES,
+    );
+    const maxCount = Number.isFinite(maxRaw)
+      ? Math.max(8, Math.min(1000, Math.floor(maxRaw)))
+      : DEFAULT_TAIPEI_MAX_SOURCES;
+    const prioritized = prioritizeSources(cameras, maxCount, [
+      TAIPEI_CCTV_CENTER,
+    ]);
+    console.log(
+      `[CCTV] Loaded Taipei camera sources: ${cameras.length} (using nearest ${prioritized.length})`,
+    );
+    return prioritized;
+  } catch (error) {
+    console.warn(
+      '[CCTV] Taipei source download error:',
+      error?.message || error,
+    );
+    return [];
+  }
+}
+
 /**
  * Fetch and parse Austin traffic camera records from the city Open Data portal.
  *

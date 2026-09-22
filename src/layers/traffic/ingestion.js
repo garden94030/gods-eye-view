@@ -198,9 +198,10 @@ export function createIngestion({
     layerState._lastBounds = clamped;
     layerState._lastViewCenter = parts.viewport.getBoundsCenter(clamped);
     let renderedSomething = false;
+    let cache = null;
 
     try {
-      let cache = layerState._tileCache.get(cacheKey);
+      cache = layerState._tileCache.get(cacheKey);
       if (!cache) {
         // LRU eviction: drop the oldest entry when cache exceeds the cap
         if (layerState._tileCache.size >= TILE_CACHE_MAX_ENTRIES) {
@@ -307,8 +308,48 @@ export function createIngestion({
       renderedSomething = true;
     } catch (e) {
       if (e?.name === 'AbortError') return;
-      if (generation === layerState._loadGeneration && !renderedSomething)
+      // TomTom flow tiles carry their own geometry. If the OSM/Overpass road
+      // service is temporarily unavailable, keep the live traffic layer
+      // useful instead of falling back to an unlabelled simulation or an empty
+      // road panel. The TomTom key has already been established by the status
+      // probe, so this fallback does not broaden the provider boundary.
+      if (
+        generation === layerState._loadGeneration &&
+        !renderedSomething &&
+        layerState._liveMode &&
+        cache
+      ) {
+        try {
+          const flowSegments = await fetchFlowForBounds(clamped, {
+            signal: requestSignal,
+          });
+          if (generation !== layerState._loadGeneration) return;
+          const flowRoads = parts.model.parseFlowRoads(flowSegments);
+          if (flowRoads.length > 0) {
+            cache.major = flowRoads;
+            cache.full = flowRoads;
+            renderedSomething = await parts.flow.applyFlowThenRender(
+              flowRoads,
+              clamped,
+              generation,
+              altitude,
+              'TomTom flow geometry fallback',
+              trace,
+            );
+          }
+        } catch (fallbackError) {
+          if (fallbackError?.name === 'AbortError') return;
+          console.warn(
+            '[Data:Traffic] TomTom geometry fallback failed:',
+            fallbackError,
+          );
+        }
+      }
+      if (generation === layerState._loadGeneration && !renderedSomething) {
         layerState._roadError = 'Road data temporarily unavailable';
+        if (layerState._liveMode)
+          layerState._flowError = 'TomTom flow unavailable';
+      }
       console.warn('[Data:Traffic] Fetch error:', e);
     } finally {
       if (generation === layerState._loadGeneration) {

@@ -1,4 +1,9 @@
 import { createSurfaceKeyboard } from './ui/surfaceKeyboard.js';
+import {
+  browserKeyEnvVars,
+  readBrowserKeyOverrides,
+  writeBrowserKeyOverrides,
+} from './browserKeyStore.js';
 
 /**
  * The POWER UP surface — paste a key, get a power.
@@ -62,13 +67,16 @@ export function stripKeylessBasemapFromHash(hash) {
 const TIER_DOTS = Object.freeze({ metered: '🔴', free: '🟡' });
 
 /** Build one key row. All content is our own registry text, set via textContent. */
-function buildRow(documentRef, key) {
+function buildRow(documentRef, key, { publicMode = false } = {}) {
   const row = documentRef.createElement('section');
   row.className = 'key-setup-row';
   row.dataset.keyId = key.id;
   row.dataset.set = String(Boolean(key.set));
   if (key.managed) row.dataset.managed = key.managed;
-  const external = key.managed === 'external';
+  // Public browser-side fields remain editable even when the deployment has a
+  // build/runtime key: the visitor may choose a browser-local override. The
+  // local loopback panel keeps its stricter external-ownership behavior.
+  const external = key.managed === 'external' && !publicMode;
 
   const head = documentRef.createElement('div');
   head.className = 'key-setup-row-head';
@@ -116,7 +124,8 @@ function buildRow(documentRef, key) {
   unlocks.textContent = key.unlocks;
 
   row.append(head, unlocks);
-  if (!external) {
+  const browserEditable = publicMode && key.clientExposed;
+  if (!external && (!publicMode || browserEditable)) {
     const fields = documentRef.createElement('div');
     fields.className = 'key-setup-fields';
     for (const envVar of key.envVars) {
@@ -133,7 +142,7 @@ function buildRow(documentRef, key) {
         : `paste ${envVar}`;
       fields.append(input);
     }
-    if (key.managed === 'file') {
+    if (key.managed === 'file' || key.managed === 'browser') {
       const remove = documentRef.createElement('button');
       remove.type = 'button';
       remove.className = 'key-setup-remove';
@@ -143,6 +152,12 @@ function buildRow(documentRef, key) {
       fields.append(remove);
     }
     row.append(fields);
+  } else if (publicMode && !browserEditable) {
+    const serverOnly = documentRef.createElement('p');
+    serverOnly.className = 'key-setup-public-only';
+    serverOnly.textContent =
+      'Server-side key — configure it in the public deployment environment.';
+    row.append(serverOnly);
   }
   return row;
 }
@@ -195,6 +210,28 @@ export async function initKeySetup({
     return null;
   }
 
+  const publicMode = status.mode === 'public-readonly';
+  const browserVars = browserKeyEnvVars();
+  const browserOverrides = publicMode ? readBrowserKeyOverrides() : {};
+  if (publicMode) {
+    status = {
+      ...status,
+      keys: (status.keys || []).map((key) => {
+        if (!key.clientExposed) return { ...key, publicEditable: false };
+        const locallySet = key.envVars.every((name) => browserOverrides[name]);
+        return {
+          ...key,
+          set: locallySet || key.set,
+          managed: locallySet ? 'browser' : key.set ? 'external' : null,
+          publicEditable: true,
+        };
+      }),
+    };
+    const editable = status.keys.filter((key) => key.publicEditable);
+    status.total = editable.length;
+    status.setCount = editable.filter((key) => key.set).length;
+  }
+
   const rowsHost = root.querySelector('[data-key-setup-rows]');
   const applyButton = root.querySelector('[data-key-setup-apply]');
   const closeButton = root.querySelector('[data-key-setup-close]');
@@ -214,7 +251,7 @@ export async function initKeySetup({
     if (!rowsHost) return;
     rowsHost.textContent = '';
     for (const key of status.keys || [])
-      rowsHost.append(buildRow(documentRef, key));
+      rowsHost.append(buildRow(documentRef, key, { publicMode }));
   };
 
   const visible = () =>
@@ -265,6 +302,35 @@ export async function initKeySetup({
 
   const submitUpdates = async (updates, doneVerb) => {
     if (disposed || busy) return;
+    if (publicMode) {
+      const browserUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([name]) => browserVars.has(name)),
+      );
+      if (!Object.keys(browserUpdates).length) {
+        say(
+          'Server-side keys must be configured in the public deployment environment.',
+        );
+        return;
+      }
+      try {
+        writeBrowserKeyOverrides(browserUpdates);
+        say('Saved in this browser. Reloading the public globe…');
+        const googleWasUnset = !status?.keys?.find(
+          (key) => key.id === 'google-maps',
+        )?.set;
+        if (googleWasUnset && browserUpdates.GOOGLE_MAPS_API_KEY) {
+          const next = stripKeylessBasemapFromHash(
+            globalThis.location?.hash?.slice(1) || '',
+          );
+          if (next !== null)
+            globalThis.history?.replaceState?.(null, '', `#${next}`);
+        }
+        globalThis.location?.reload?.();
+      } catch (error) {
+        say(`Save failed: ${error?.message || error}`);
+      }
+      return;
+    }
     const googleWasUnset = !status?.keys?.find(
       (key) => key.id === 'google-maps',
     )?.set;

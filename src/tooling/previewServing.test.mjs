@@ -7,13 +7,13 @@ import { localProviderPlugins } from '../../server/providers/local.js';
 import { apiNotFoundPlugin } from '../../server/standalone/api-not-found.js';
 import { makeFixtureRoot } from './fixtureRoot.mjs';
 
-test('data providers have both hooks; credential editing stays development-only', () => {
+test('data providers have both hooks; public preview exposes status but never the writer', () => {
   for (const plugin of localProviderPlugins()) {
     if (plugin.name === 'gev-key-setup') {
-      assert.equal(plugin.configurePreviewServer, undefined);
+      assert.equal(typeof plugin.configurePreviewServer, 'function');
       assert.equal(
         plugin.apply({}, { command: 'serve', isPreview: true }),
-        false,
+        true,
       );
       assert.equal(
         plugin.apply({}, { command: 'serve', isPreview: false }),
@@ -105,7 +105,7 @@ test('real dev and built-preview servers serve provider JSON and terminate unkno
         ['/api/gbfs/', 400],
         ['/api/tomtom/status', 200],
         ['/api/radio/unknown', 404],
-        ['/api/setup/status', isPreview ? 404 : 200],
+        ['/api/setup/status', 200],
         ['/api/setup/update', 404],
         ['/api/does-not-exist', 404],
         ['/api', 404],
@@ -124,10 +124,7 @@ test('real dev and built-preview servers serve provider JSON and terminate unkno
         const body = await response.json();
         if (route === '/api/cctv/sources')
           assert.equal(body.sources[0].id, 'fixture');
-        if (
-          route === '/api/does-not-exist' ||
-          (isPreview && route.startsWith('/api/setup'))
-        ) {
+        if (route === '/api/does-not-exist' || route === '/api/setup/update') {
           assert.deepEqual(body, { error: 'Unknown API route' });
           assert.equal(response.headers.get('cache-control'), 'no-store');
         }
@@ -143,6 +140,11 @@ test('real dev and built-preview servers serve provider JSON and terminate unkno
         });
         assert.equal(write.status, 404);
         assert.deepEqual(await write.json(), { error: 'Unknown API route' });
+        const setup = await fetch(origin + '/api/setup/status');
+        const setupBody = await setup.json();
+        assert.equal(setupBody.mode, 'public-readonly');
+        assert.equal(setupBody.store, 'browser-local');
+        assert.ok(setupBody.keys.every((key) => !('value' in key)));
       }
       for (const route of ['/', '/application-route', '/apiary']) {
         const response = await fetch(origin + route);

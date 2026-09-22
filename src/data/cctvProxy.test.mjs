@@ -5,6 +5,7 @@ import {
   fetchCctvImageFromUpstream,
   fetchCctvMediaUpstream,
 } from '../../server/providers/cctv/media.js';
+import { rewriteHlsManifest } from '../../server/providers/cctv.js';
 
 /** A body that arrives in chunks and never declares a Content-Length. */
 function chunkedImageResponse(chunkBytes, chunkCount, { onChunk = () => {}, onCancel = () => {} } = {}) {
@@ -149,6 +150,25 @@ test('CCTV media upstream fetch never cuts a stream whose headers arrived in tim
   // so the live body is still allowed to flow.
   await new Promise((resolve) => setTimeout(resolve, 60));
   assert.equal(observedSignal?.aborted, false, 'a slow body after timely headers is never aborted here');
+});
+
+test('Taipei HLS manifests rewrite same-origin segments back through the CCTV proxy', () => {
+  const rewritten = rewriteHlsManifest(
+    '#EXTM3U\n#EXT-X-MAP:URI="init.mp4"\nsegment-1.mp4\n',
+    {
+      cameraId: 'tpe-1',
+      baseUrl:
+        'https://jtmctrafficcctv4.gov.taipei/NVR/camera/live.m3u8',
+    },
+  );
+  assert.match(
+    rewritten,
+    /\/api\/cctv\/media\/tpe-1\?asset=https%3A%2F%2Fjtmctrafficcctv4\.gov\.taipei%2FNVR%2Fcamera%2Finit\.mp4/,
+  );
+  assert.match(
+    rewritten,
+    /\/api\/cctv\/media\/tpe-1\?asset=https%3A%2F%2Fjtmctrafficcctv4\.gov\.taipei%2FNVR%2Fcamera%2Fsegment-1\.mp4/,
+  );
 });
 
 test('CCTV upstream frame fetch keeps a body that lands exactly on the cap', async () => {

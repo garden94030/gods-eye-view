@@ -1,5 +1,5 @@
 /* ============================================================
-   POWER UP — in-app key setup (dev server only, src/keySetup.js)
+   POWER UP — in-app key setup (local and public, src/keySetup.js)
    Same voice as the first-run launcher: glass card, cyan trim,
    mono kickers. The chip retires once every key is configured.
    ============================================================ */
@@ -273,6 +273,14 @@
   margin: 0;
   color: rgba(198, 220, 226, 0.6);
   font-size: 0.66rem;
+}
+
+.key-setup-public-only {
+  margin: 0;
+  color: rgba(255, 200, 120, 0.68);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  line-height: 1.4;
 }
 
 .key-setup-fields {

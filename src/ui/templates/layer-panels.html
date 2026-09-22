@@ -8,7 +8,30 @@
         <span class="panel-divider"></span>
         <button class="panel-collapse-btn" data-collapse-target="data-panel" title="Collapse panel">+</button>
       </div>
+      <div class="data-panel-bridge">
+        <button id="geolibre-open-btn" class="data-bridge-btn" type="button">GeoLibre · 時序事件</button>
+        <span id="geolibre-bridge-status" role="status">USGS／NASA FIRMS</span>
+      </div>
       <div id="data-toggles" class="data-toggle-list"></div>
+    </div>
+  </div>
+
+  <!-- GeoLibre live, time-aware public event viewer -->
+  <div id="geolibre-panel" class="panel-collapsible collapsed" data-panel-id="geolibre-panel">
+    <div class="panel-glow"></div>
+    <div class="geolibre-panel-inner">
+      <div class="panel-header">
+        <span class="panel-title">GEOLIBRE · EVENTS</span>
+        <span class="panel-divider"></span>
+        <button class="panel-collapse-btn" data-collapse-target="geolibre-panel" title="收合面板">+</button>
+      </div>
+      <div id="geolibre-panel-status" class="geolibre-panel-status" role="status" aria-live="polite">尚未載入 GeoLibre</div>
+      <iframe id="geolibre-events-frame" class="geolibre-events-frame" title="GeoLibre 即時地球事件時間檢視器" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      <div class="geolibre-panel-actions">
+        <button id="geolibre-refresh-btn" class="scene-btn" type="button">重新整理</button>
+        <a id="geolibre-open-external" class="scene-btn geolibre-external-link" href="#" target="_blank" rel="noopener noreferrer">在 GeoLibre 開啟</a>
+      </div>
+      <p class="geolibre-panel-note">資料來自 USGS／NASA FIRMS；未配置 FIRMS key 時，火災資料維持 UNAVAILABLE。</p>
     </div>
   </div>
 

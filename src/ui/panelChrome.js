@@ -10,6 +10,7 @@ const SHARE_PANEL_STATE_SPECS = Object.freeze([
   { id: 'control-panel', pinnable: true },
   { id: 'location-bar', pinnable: true },
   { id: 'data-panel' },
+  { id: 'geolibre-panel' },
   { id: 'cctv-panel' },
   { id: 'radio-panel' },
   { id: 'scene-panel' },
@@ -20,6 +21,7 @@ const SHARE_PANEL_STATE_SPECS = Object.freeze([
 /** Standard map-view panels cleared out of the way on a fresh Cockpit entry. */
 const COCKPIT_ENTRY_COLLAPSE_PANEL_IDS = Object.freeze([
   'data-panel',
+  'geolibre-panel',
   'cctv-panel',
   'scene-panel',
   'pp-toggles',
@@ -33,6 +35,7 @@ const COCKPIT_ENTRY_COLLAPSE_PANEL_IDS = Object.freeze([
 // explicit taps always move the focus to the panel the operator selected.
 const MOBILE_PANEL_FOCUS_PRIORITY = Object.freeze([
   'data-panel',
+  'geolibre-panel',
   'scene-panel',
   'global-context-panel',
   'cctv-panel',

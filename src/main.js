@@ -1,13 +1,18 @@
 import { createStandaloneApplication } from './standalone/application.js';
 import { describeError } from './standalone/errors.js';
 import { installTraditionalChinesePlugin } from './plugins/traditionalChinese.js';
+import { readBrowserKeyOverrides } from './browserKeyStore.js';
 
 // The add-on is enabled by default; append ?lang=en to inspect the upstream UI.
 const traditionalChinesePlugin = installTraditionalChinesePlugin();
+const browserKeyOverrides = readBrowserKeyOverrides();
 
 const application = createStandaloneApplication({
-  googleApiKey: import.meta.env.GOOGLE_MAPS_API_KEY,
-  cesiumToken: import.meta.env.CESIUM_ION_TOKEN,
+  googleApiKey:
+    browserKeyOverrides.GOOGLE_MAPS_API_KEY ||
+    import.meta.env.GOOGLE_MAPS_API_KEY,
+  cesiumToken:
+    browserKeyOverrides.CESIUM_ION_TOKEN || import.meta.env.CESIUM_ION_TOKEN,
   allowQaRegistration: import.meta.env.DEV,
 });
 

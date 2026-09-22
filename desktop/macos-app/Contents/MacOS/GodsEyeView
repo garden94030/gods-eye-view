@@ -12,15 +12,6 @@ LOG_FILE="$STATE_DIR/server.log"
 PID_FILE="$STATE_DIR/server.pid"
 SERVER_PID=""
 
-cleanup() {
-  if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
-    kill "$SERVER_PID" 2>/dev/null || true
-  fi
-}
-
-trap cleanup EXIT
-trap 'exit 0' TERM INT
-
 show_error() {
   /usr/bin/osascript -e 'display dialog "Gods Eye View 無法啟動。請查看 /tmp/gods-eye-view-<你的 UID>/server.log。" with title "Gods Eye View" buttons {"好"} default button "好"' >/dev/null 2>&1 || true
 }
@@ -35,9 +26,6 @@ mkdir -p "$STATE_DIR"
 # Reuse an already-running local instance owned by this project.
 if /usr/bin/curl -fsS --max-time 1 "$APP_URL" >/dev/null 2>&1; then
   /usr/bin/open "$APP_URL"
-  while /usr/bin/curl -fsS --max-time 1 "$APP_URL" >/dev/null 2>&1; do
-    /bin/sleep 5
-  done
   exit 0
 fi
 
@@ -50,10 +38,9 @@ printf '%s\n' "$SERVER_PID" > "$PID_FILE"
 for attempt in {1..60}; do
   if /usr/bin/curl -fsS --max-time 1 "$APP_URL" >/dev/null 2>&1; then
     /usr/bin/open "$APP_URL"
-    while kill -0 "$SERVER_PID" 2>/dev/null; do
-      /bin/sleep 5
-    done
-    exit 1
+    # The server is intentionally detached from this short-lived launcher.
+    # Keeping the launcher alive makes macOS report the .app as unresponsive.
+    exit 0
   fi
   /bin/sleep 0.5
 done

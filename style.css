@@ -58,6 +58,46 @@
     white-space: nowrap;
   }
 
+  /* Keep the primary mobile actions genuinely tappable.  The icon artwork
+     may remain compact, but the button box must not collapse to the glyph. */
+  #top-center-actions button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .panel-collapse-btn {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+  }
+
+  #command-dock :is(#location-bar, #control-panel) .dock-tray-toggle {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #command-dock #control-panel .panel-header.dock-tray-toggle {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+
+  #pp-toggles > .pp-header-row .pp-collapse-btn {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+
+  .context-radio-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
   #command-dock {
     right: 12px;
     bottom: max(8px, env(safe-area-inset-bottom));
@@ -91,12 +131,53 @@
 
   body:not(.ui-clean-view):not(.recording-mode) #cesium-credits {
     bottom: calc(6.8rem + env(safe-area-inset-bottom));
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+    box-sizing: border-box;
+    white-space: normal;
+    line-height: 1.35;
+  }
+
+  body:not(.ui-clean-view):not(.recording-mode)
+    #cesium-credits
+    .cesium-credit-expand-link {
+    white-space: nowrap;
   }
 }
 
 @media (max-width: 420px) {
+  #top-center-actions {
+    right: 115px;
+    gap: 4px;
+  }
+
+  #top-center-actions button {
+    width: 44px;
+    height: 44px;
+  }
+
   #command-dock > #gev-voice-control {
     flex-basis: 8rem !important;
     width: 8rem;
+  }
+}
+
+/* The 320px class of phones cannot fit five 44px actions between the title
+   edge and the language control.  Use a compact, still fully visible rail at
+   this one narrow breakpoint instead of allowing the first action to render
+   at a negative x-coordinate. */
+@media (max-width: 360px) {
+  #top-center-actions {
+    right: 108px;
+    gap: 4px;
+  }
+
+  #top-center-actions button {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    min-height: 36px;
   }
 }

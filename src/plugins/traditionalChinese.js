@@ -78,8 +78,8 @@ const TRANSLATIONS = Object.freeze({
   'Power up the globe': '啟用地球功能',
   'SAVE KEYS': '儲存金鑰',
   'ESC to close': '按 ESC 關閉',
-  "The globe already flies keyless. Every key below switches on another real feed — paste one and it's saved into this app's local configuration, then the server restarts itself. Server-side keys stay on this machine; Google Maps and Cesium ion run in the browser and must be provider-restricted. Keys you configured elsewhere are shown but never touched.":
-    '地球本身即可免金鑰運作。下列每組金鑰都能啟用一項真實資料來源；貼上後會儲存至本機設定，接著伺服器會自動重啟。伺服器端金鑰只留在本機；Google Maps 與 Cesium ion 在瀏覽器中運作，必須在供應商端限制使用範圍。你在其他地方設定的金鑰只會顯示，不會被修改。',
+  "The globe already flies keyless. In local development, server keys are saved to this app's configuration. On a public site, only browser-side keys are saved in this browser; server-side feeds must be configured by the deployment owner. Google Maps and Cesium ion must be provider-restricted. Keys configured elsewhere are shown but never touched.":
+    '地球本身即可免金鑰運作。本機開發版會把伺服器端金鑰儲存至此應用程式設定；公開網站只會把瀏覽器端金鑰儲存在這個瀏覽器，伺服器端資料源必須由部署擁有者設定。Google Maps 與 Cesium ion 必須在供應商端限制使用範圍。其他地方設定的金鑰只會顯示，不會被修改。',
   'The Google Maps key buys the photorealistic planet — everything else stacks on top.':
     'Google Maps 金鑰可啟用擬真地球，其餘功能都會疊加在上面。',
   'MISSION CONTROL · FIRST LAUNCH': '任務控制 · 首次啟動',

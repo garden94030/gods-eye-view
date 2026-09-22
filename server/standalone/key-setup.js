@@ -54,7 +54,7 @@ const DEV_FRESH_EXTERNAL_KEYS_AT_BOOT = new Set(
 );
 
 /**
- * In-app key setup ("POWER UP" panel) — dev-server only.
+ * In-app key setup ("POWER UP" panel).
  *
  * GET  /api/setup/status → which keys are configured, as presence plus a
  *   source classification. Never a value or suffix. The panel renders itself entirely from
@@ -65,10 +65,10 @@ const DEV_FRESH_EXTERNAL_KEYS_AT_BOOT = new Set(
  *   reloads itself. Pasting a key in the app IS the whole setup — no
  *   hand-edited env files.
  *
- * Loopback-only on purpose: with HOST=0.0.0.0 the app can be shared on a LAN,
- * and a guest must be able to neither write the host's .env nor probe which
- * keys exist. Prod builds never register this middleware (apply: 'serve'), so
- * the panel's status fetch fails and the client removes the whole surface.
+ * The writable endpoints remain loopback-only. A built public deployment gets
+ * a read-only status endpoint so the browser can restore the panel; it never
+ * accepts credentials or writes the container filesystem. Browser-side keys
+ * are stored in that visitor's localStorage by src/browserKeyStore.js.
  */
 function keySetupEndpoint({ sourceRoot = defaultSourceRoot } = {}) {
   const respond = (res, statusCode, payload) => {
@@ -175,6 +175,21 @@ function keySetupEndpoint({ sourceRoot = defaultSourceRoot } = {}) {
     }
     return { ...status, store: storeName() };
   };
+  const publicProviderStatus = () => {
+    const status = keySetupStatus(process.env);
+    const browserKeys = status.keys.filter((key) => key.clientExposed);
+    return {
+      mode: 'public-readonly',
+      store: 'browser-local',
+      keys: status.keys.map((key) => ({
+        ...key,
+        publicEditable: Boolean(key.clientExposed),
+        managed: key.clientExposed ? null : key.set ? 'external' : 'server',
+      })),
+      setCount: browserKeys.filter((key) => key.set).length,
+      total: browserKeys.length,
+    };
+  };
   // Atomically replace the store's content: fresh same-dir temp created 0600
   // with the exclusive flag, fsync, rename over the target. Closes the window
   // where writeFileSync leaves a 0644 file holding a real key before any later
@@ -237,13 +252,9 @@ function keySetupEndpoint({ sourceRoot = defaultSourceRoot } = {}) {
   };
   return {
     name: 'gev-key-setup',
-    // serve AND not preview: `vite preview` resolves with command 'serve' too,
-    // so a bare apply:'serve' would still configure under preview. The endpoints
-    // only install via configureServer (never configurePreviewServer), so they
-    // are absent from preview today — but pinning apply here makes that a
-    // guarantee rather than an accident of which hook a future edit uses.
-    apply: (_config, { command, isPreview }) =>
-      command === 'serve' && !isPreview,
+    // The plugin is present in both dev and preview. configureServer owns the
+    // loopback-only writer; configurePreviewServer installs status only.
+    apply: (_config, { command }) => command === 'serve',
     configureServer(server) {
       server.middlewares.use('/api/setup/status', (req, res) => {
         if (req.method !== 'GET')
@@ -336,6 +347,13 @@ function keySetupEndpoint({ sourceRoot = defaultSourceRoot } = {}) {
             });
           }, 250);
         });
+      });
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use('/api/setup/status', (req, res) => {
+        if (req.method !== 'GET')
+          return respond(res, 405, { error: 'Method not allowed' });
+        respond(res, 200, publicProviderStatus());
       });
     },
   };

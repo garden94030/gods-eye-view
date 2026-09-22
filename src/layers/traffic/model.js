@@ -13,6 +13,21 @@ import {
 } from './policy.js';
 
 export function createModel({ state: layerState, services, parts, source }) {
+  const FLOW_ROAD_TYPES = [
+    ['motorway', /motorway/i],
+    ['trunk', /trunk/i],
+    ['primary', /primary|major/i],
+    ['secondary', /secondary/i],
+    ['tertiary', /tertiary/i],
+  ];
+
+  function normalizeFlowRoadType(value) {
+    const match = FLOW_ROAD_TYPES.find(([, pattern]) =>
+      pattern.test(value || ''),
+    );
+    return match?.[0] || 'unclassified';
+  }
+
   /** Build scene waypoints from source records; thinning and terrain remain rendering policy. */
   function parseRoads(roadData) {
     if (!roadData || !roadData.roads) {
@@ -73,10 +88,36 @@ export function createModel({ state: layerState, services, parts, source }) {
         );
       }
 
-      roads.push({ coords, type, oneway, waypoints, segmentDist });
+      const parsed = { coords, type, oneway, waypoints, segmentDist };
+      if (road.flow) parsed.flow = road.flow;
+      if (road.flowSource) parsed.flowSource = road.flowSource;
+      roads.push(parsed);
     }
 
     return roads;
+  }
+
+  /**
+   * Build renderable roads directly from TomTom flow geometries. This is a
+   * live-data fallback for an Overpass outage: the flow tile already contains
+   * both the road line and its current congestion level, so waiting for an
+   * unrelated OSM geometry service would otherwise leave the live layer empty.
+   */
+  function parseFlowRoads(flowSegments) {
+    return parseRoads({
+      roads: (Array.isArray(flowSegments) ? flowSegments : []).map(
+        (segment) => ({
+          coordinates: segment.coords,
+          type: normalizeFlowRoadType(segment.roadType),
+          oneway: 0,
+          flow: {
+            level: segment.trafficLevel,
+            closure: segment.closure === true,
+          },
+          flowSource: 'tomtom',
+        }),
+      ),
+    });
   }
 
   // ─── Road Length Estimation ────────────────────────────────
@@ -360,6 +401,7 @@ export function createModel({ state: layerState, services, parts, source }) {
   }
   return {
     parseRoads,
+    parseFlowRoads,
     estimateRoadLengthDeg,
     computeDotCount,
     allocateRoadDotBudgets,

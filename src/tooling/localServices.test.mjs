@@ -221,13 +221,13 @@ test('debug logging resolves each supplied application directory independently',
   }
 });
 
-test('key setup writes only the supplied application root, retains request guards and stays absent from preview', async (t) => {
+test('key setup writes only the supplied application root, retains request guards and exposes read-only preview status', async (t) => {
   const first = root(t),
     untouched = root(t);
   env(t, 'OPENAI_API_KEY', undefined);
   const plugin = keySetupEndpoint({ sourceRoot: first });
-  assert.equal(plugin.apply({}, { command: 'serve', isPreview: true }), false);
-  assert.equal(plugin.configurePreviewServer, undefined);
+  assert.equal(plugin.apply({}, { command: 'serve', isPreview: true }), true);
+  assert.equal(typeof plugin.configurePreviewServer, 'function');
   const routes = install(plugin);
   const handler = routes.get('/api/setup/keys');
   const body = JSON.stringify({
