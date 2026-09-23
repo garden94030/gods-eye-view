@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   collectKeyUpdates,
   keySetupChipLabel,
+  publicFallbackStatus,
+  providerSetupApiPrefix,
   stripKeylessBasemapFromHash,
 } from './keySetup.js';
 
@@ -11,6 +13,22 @@ test('the chip counts what is missing, and retires the count at zero', () => {
   assert.equal(keySetupChipLabel({ setCount: 7, total: 8 }), 'POWER UP · 1 KEY WAITING');
   assert.equal(keySetupChipLabel({ setCount: 8, total: 8 }), 'POWERED UP');
   assert.equal(keySetupChipLabel(null), 'POWERED UP', 'no status is not a broken label');
+});
+
+test('public fallback remains explicit when auth API returns HTML/401', () => {
+  const status = publicFallbackStatus();
+  assert.equal(status.mode, 'public-readonly');
+  assert.equal(status.authUnavailable, true);
+  assert.equal(status.serverEditable, false);
+  assert.equal(status.setCount, 0, 'unavailable status never invents configured keys');
+  assert.equal(status.keys.length, 2);
+  assert.equal(status.keys.every((key) => key.clientExposed), true);
+});
+
+test('Provider Settings selects the mounted same-origin API prefix', () => {
+  assert.equal(providerSetupApiPrefix('/god-view/'), '/god-view/api');
+  assert.equal(providerSetupApiPrefix('/god-view'), '/god-view/api');
+  assert.equal(providerSetupApiPrefix('/'), '/api');
 });
 
 test('collectKeyUpdates keeps only non-empty trimmed values', () => {

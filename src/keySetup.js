@@ -29,6 +29,18 @@ export function keySetupChipLabel(status) {
     : 'POWERED UP';
 }
 
+export function publicFallbackStatus() {
+  const keys = [
+    { id: 'google-maps', title: 'GOOGLE MAPS', envVars: ['GOOGLE_MAPS_API_KEY'], unlocks: '3D 地球與地點搜尋', getUrl: 'https://developers.google.com/maps/documentation/tile/get-api-key', tier: 'metered', clientExposed: true, set: false },
+    { id: 'cesium-ion', title: 'CESIUM ION', envVars: ['CESIUM_ION_TOKEN'], unlocks: 'Cesium 地形與資產', getUrl: 'https://ion.cesium.com/tokens', tier: 'metered', clientExposed: true, set: false },
+  ];
+  return { mode: 'public-readonly', serverEditable: false, store: 'browser-and-encrypted-session', keys, total: keys.length, setCount: 0, authUnavailable: true };
+}
+
+export function providerSetupApiPrefix(pathname = globalThis.location?.pathname || '/') {
+  return pathname.startsWith('/god-view/') || pathname === '/god-view' ? '/god-view/api' : '/api';
+}
+
 /**
  * Collect a POST body from field descriptors — pure, exported for tests.
  * @param {Array<{envVar: string, value: string}>} fields
@@ -125,7 +137,8 @@ function buildRow(documentRef, key, { publicMode = false } = {}) {
 
   row.append(head, unlocks);
   const browserEditable = publicMode && key.clientExposed;
-  if (!external && (!publicMode || browserEditable)) {
+  const sessionEditable = publicMode && key.serverEditable;
+  if (!external && (!publicMode || browserEditable || sessionEditable)) {
     const fields = documentRef.createElement('div');
     fields.className = 'key-setup-fields';
     for (const envVar of key.envVars) {
@@ -152,7 +165,7 @@ function buildRow(documentRef, key, { publicMode = false } = {}) {
       fields.append(remove);
     }
     row.append(fields);
-  } else if (publicMode && !browserEditable) {
+  } else if (publicMode && !browserEditable && !sessionEditable) {
     const serverOnly = documentRef.createElement('p');
     serverOnly.className = 'key-setup-public-only';
     serverOnly.textContent =
@@ -195,19 +208,21 @@ export async function initKeySetup({
   const doFetch = fetchImpl || globalThis.fetch?.bind(globalThis);
 
   let status = null;
+  const apiPrefix = providerSetupApiPrefix();
   try {
-    const response = await doFetch('/api/setup/status', {
+    const response = await doFetch(`${apiPrefix}/setup/status`, {
       cache: 'no-store',
       signal: lifetime.signal,
     });
-    if (!response.ok) throw new Error(String(response.status));
-    status = await response.json();
+    if (response.status === 401 || response.status === 302) status = publicFallbackStatus();
+    else {
+      if (!response.ok) throw new Error(String(response.status));
+      status = await response.json();
+    }
     if (disposed) return null;
   } catch {
-    // Prod build or non-loopback visitor: the surface cannot function, so it
-    // does not exist. (The README covers .env for headless/self-host setups.)
-    destroy();
-    return null;
+    if (globalThis.location?.pathname?.startsWith('/god-view')) status = publicFallbackStatus();
+    else { destroy(); return null; }
   }
 
   const publicMode = status.mode === 'public-readonly';
@@ -247,7 +262,7 @@ export async function initKeySetup({
     chipLabel.textContent = keySetupChipLabel(status);
     // Fully powered is the owner's clean screen: the chip retires. The dialog
     // stays reachable this session (and via ?setup=1) to swap or verify keys.
-    chip.hidden = status.setCount >= status.total;
+    chip.hidden = !publicMode && status.setCount >= status.total;
     if (!rowsHost) return;
     rowsHost.textContent = '';
     for (const key of status.keys || [])
@@ -295,6 +310,15 @@ export async function initKeySetup({
     if (statusLine) statusLine.textContent = text;
   };
 
+  const showLoginHint = () => {
+    if (!statusLine) return;
+    statusLine.textContent = '登入工作階段已失效；瀏覽器專用設定仍可使用，伺服器端設定需重新登入。 ';
+    const link = documentRef.createElement('a');
+    link.href = `/_auth/login?next=${encodeURIComponent(globalThis.location?.pathname || '/god-view/')}`;
+    link.textContent = '重新登入';
+    statusLine.append(link);
+  };
+
   const storeLabel = () =>
     status?.store === 'pinokio-environment'
       ? 'your app configuration'
@@ -306,15 +330,29 @@ export async function initKeySetup({
       const browserUpdates = Object.fromEntries(
         Object.entries(updates).filter(([name]) => browserVars.has(name)),
       );
-      if (!Object.keys(browserUpdates).length) {
-        say(
-          'Server-side keys must be configured in the public deployment environment.',
-        );
+      const serverUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([name]) => !browserVars.has(name)),
+      );
+      if (!Object.keys(browserUpdates).length && !Object.keys(serverUpdates).length) {
+        say('沒有可儲存的設定。');
         return;
       }
       try {
-        writeBrowserKeyOverrides(browserUpdates);
-        say('Saved in this browser. Reloading the public globe…');
+        if (Object.keys(serverUpdates).length) {
+          const response = await doFetch(`${apiPrefix}/setup/keys`, {
+            method: 'POST', signal: lifetime.signal,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(serverUpdates),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (response.status === 401) { showLoginHint(); return; }
+          if (!response.ok || !payload.ok) { say(payload.error || `儲存失敗（${response.status}）。`); return; }
+          status = payload.status;
+        }
+        if (Object.keys(browserUpdates).length) writeBrowserKeyOverrides(browserUpdates);
+        say(Object.keys(serverUpdates).length
+          ? '伺服器金鑰已加密保存在目前登入工作階段，最長 8 小時。'
+          : '已儲存在此瀏覽器，正在重新載入…');
         const googleWasUnset = !status?.keys?.find(
           (key) => key.id === 'google-maps',
         )?.set;
@@ -325,7 +363,8 @@ export async function initKeySetup({
           if (next !== null)
             globalThis.history?.replaceState?.(null, '', `#${next}`);
         }
-        globalThis.location?.reload?.();
+        if (Object.keys(browserUpdates).length) globalThis.location?.reload?.();
+        else render(status);
       } catch (error) {
         say(`Save failed: ${error?.message || error}`);
       }
@@ -338,7 +377,7 @@ export async function initKeySetup({
     applyButton?.setAttribute('aria-disabled', 'true');
     say('Saving…');
     try {
-      const response = await doFetch('/api/setup/keys', {
+      const response = await doFetch(`${apiPrefix}/setup/keys`, {
         method: 'POST',
         signal: lifetime.signal,
         headers: { 'Content-Type': 'application/json' },
@@ -346,6 +385,7 @@ export async function initKeySetup({
       });
       const payload = await response.json().catch(() => ({}));
       if (disposed) return;
+      if (response.status === 401) { showLoginHint(); return; }
       if (!response.ok || !payload.ok) {
         say(payload.error || `Save failed (${response.status}).`);
         return;
@@ -428,6 +468,7 @@ export async function initKeySetup({
   });
 
   render(status);
+  if (status.authUnavailable) showLoginHint();
 
   // Re-entry for a fully-keyed setup, demos, and support: ?setup=1 opens the
   // dialog even though the chip has retired.

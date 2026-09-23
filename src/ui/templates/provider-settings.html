@@ -36,7 +36,10 @@
     to this app's configuration. On a public site, only browser-side keys are
     saved in this browser; server-side feeds must be configured by the
     deployment owner. Google Maps and Cesium ion must be provider-restricted.
-    Keys configured elsewhere are shown but never touched.
+    Browser keys stay in this browser. Admin-entered server keys are encrypted
+    in the signed-in session cookie for up to 8 hours; they are not deployment
+    secrets and disappear when that session expires. A configured key does not
+    imply that a provider adapter is available.
   </p>
   <div class="key-setup-rows" data-key-setup-rows></div>
   <div class="key-setup-footer">
